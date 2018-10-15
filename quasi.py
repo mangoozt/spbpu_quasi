@@ -3,42 +3,16 @@ import numpy as np
 import sys
 import matplotlib.pyplot as plt
 
+key = 101010101.
 
-def last_length(f):
-    """Read last N lines from file fname."""
-    former_pos = f.tell()
-    BUFSIZ = 128
-    # True if open() was overridden and file was opened in text
-    # mode. In that case readlines() will return unicode strings
-    # instead of bytes.
-    encoded = getattr(f, 'encoding', False)
-    CR = '\n' if encoded else b'\n'
-    key = '\n101010101' if encoded else b'\n101010101'
-    f.seek(0, os.SEEK_END)
-    fsize = f.tell()
-    block = -1
-    pos = BUFSIZ
-    exit = False
-    while not exit:
-        f.seek(fsize - pos)
-        if abs(pos) >= fsize:
-            f.seek(0)
-            break
-        else:
-            f.seek(fsize - pos)
-            string = f.read(BUFSIZ)
-            newline = string.find(CR)
-            keypos = string.find(key, newline)
-            if keypos is not -1:
-                f.seek(fsize - pos + keypos + len(CR))
-                break
-            else:
-                pos += -newline + BUFSIZ
 
-    f.readline()
+def max_length(data):
+    a = np.max(data[np.where(data[:, 0] == key), 2])
+    return a
 
-    a = np.fromstring(f.readline(), dtype="float", count=4, sep=' ')[2]
-    f.seek(former_pos, os.SEEK_SET)
+
+def max_ydev(data):
+    a = np.max(np.abs(data[np.where(data[:, 0] != key), 2:3]))
     return a
 
 
@@ -47,7 +21,7 @@ def gen_state(state, crack):
         x = []
         uppy = []
         downy = []
-        xx=0
+        xx = 0
         for block in crack[:-1]:
             x.append(xx)
             uppy.append(block[2])
@@ -71,27 +45,28 @@ def gen_state(state, crack):
 
 if __name__ == "__main__":
     with open(sys.argv[1], 'r') as f:
-        width = last_length(f)
-        print('Last length: %f' % width)
-        print(f.tell())
-        state = np.array(4)
-        crack = []
-        for line in f:
-            if line[:9] == '101010101':
-                if len(crack) != 0:
-                    (x, uppy, downy) = gen_state(state, crack)
-                    fig, (ax1) = plt.subplots(1, 1, sharex=True)
-                    ax1.set_xlim(right=width)
-                    ax1.fill_between(x, uppy, downy)
-                    plt.show()
-                    crack = []
-                print('New state!')
-                state = np.fromstring(line, sep=' ')
-                print(state)
-            else:
-                crack.append(np.fromstring(line, sep=' '))
-        (x, uppy, downy) = gen_state(state, crack)
-        fig, (ax1) = plt.subplots(1, 1, sharex=True)
-        ax1.set_xlim(right=width)
-        ax1.fill_between(x, uppy, downy)
-        plt.show()
+        quasi = np.loadtxt(f)
+    print(quasi)
+    width = max_length(quasi)
+    print('Max length: %f' % width)
+    height = max_ydev(quasi)
+    print('Max dev: %f' % height)
+    f = True
+    s = np.where(quasi[:, 0] == key)[0]
+    print(s)
+    fig, (ax1) = plt.subplots(1, 1, sharex=True)
+    ax1.set_xlim(right=width)
+    ax1.set_ylim([-height, height])
+    plt.ion()
+    plt.show(block=False)
+    for i in range(0, len(s)):
+        print(s[i])
+        if i < (len(s) - 1):
+            (x, uppy, downy) = gen_state(quasi[s[i]], quasi[s[i] + 1:s[i + 1]])
+        else:
+            (x, uppy, downy) = gen_state(quasi[s[i]], quasi[s[i] + 1:])
+        ax1.fill_between(x, uppy, downy, color='g')
+        fig.canvas.draw()
+        plt.draw()
+
+    plt.show(block=True)
